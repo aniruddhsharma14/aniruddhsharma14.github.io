@@ -3,8 +3,7 @@
 Order book reconstruction, optimal market making, and an empirical study of why passive
 liquidity provision is hard on binary sports event contracts.
 
-Independent research on ~40 FIFA World Cup matches of tick-level Kalshi data, conducted
-alongside the MS Financial Engineering programme at NYU Tandon.
+Independent research on ~40 FIFA World Cup matches of tick-level Kalshi data. (Still ongoing)
 
 ---
 
