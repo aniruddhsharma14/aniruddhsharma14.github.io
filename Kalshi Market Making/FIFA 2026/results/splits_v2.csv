@@ -1,0 +1,28 @@
+match,split,group,group_teams,teams,day,tier,book_rows,trade_rows,prior_use,reason
+26JUN14AUSTUR,cv,1,AUS/PAR/TUR/USA,AUS-TUR,2026-06-14,depth_clean,251736,178222,none,recombination pool
+26JUN25PARAUS,cv,1,AUS/PAR/TUR/USA,PAR-AUS,2026-06-26,depth_clean,164043,93784,none,recombination pool
+26JUN25TURUSA,cv,1,AUS/PAR/TUR/USA,TUR-USA,2026-06-26,depth_clean,589056,459612,none,recombination pool
+26JUN13QATSUI,cv,3,BIH/CAN/QAT/SUI,QAT-SUI,2026-06-13,depth_clean,144754,96836,H8 replication (v1 explore set),recombination pool
+26JUN13BRAMAR,cv,4,BRA/HTI/MAR/SCO,BRA-MAR,2026-06-13,depth_clean,383551,275321,H8 replication (v1 explore set); reconstruction cross-checked against Kalshi published chart,recombination pool
+26JUN13HTISCO,cv,4,BRA/HTI/MAR/SCO,HTI-SCO,2026-06-14,depth_clean,168877,112969,H8 replication (v1 explore set),recombination pool
+26JUN14CIVECU,cv,5,CIV/CUW/ECU/GER,CIV-ECU,2026-06-14,depth_clean,230813,70917,H8 replication (v1 explore set),recombination pool
+26JUN14GERCUW,cv,5,CIV/CUW/ECU/GER,GER-CUW,2026-06-14,depth_clean,100995,74361,H8 replication (v1 explore set),recombination pool
+26JUN25CUWCIV,cv,5,CIV/CUW/ECU/GER,CUW-CIV,2026-06-25,depth_clean,75178,39466,H8 replication (v1 explore set),recombination pool
+26JUN25ECUGER,cv,5,CIV/CUW/ECU/GER,ECU-GER,2026-06-25,depth_clean,456809,301976,H8 replication (v1 explore set),recombination pool
+26JUN27CODUZB,cv,6,COD/COL/POR/UZB,COD-UZB,2026-06-27,depth_clean,224576,120222,"H8 replication (v1 explore set); apparent-arbitrage investigation, Stage 0",recombination pool
+26JUN27COLPOR,cv,6,COD/COL/POR/UZB,COL-POR,2026-06-27,depth_clean,511754,366279,"H8 replication (v1 explore set); deep dive on crossed/inconsistent states, Stage 0",recombination pool
+26JUN15ESPCPV,cv,7,CPV/ESP/KSA/URU,ESP-CPV,2026-06-15,depth_clean,269715,183027,none,recombination pool
+26JUN15KSAURU,cv,7,CPV/ESP/KSA/URU,KSA-URU,2026-06-15,depth_clean,351495,242885,none,recombination pool
+26JUN26CPVKSA,cv,7,CPV/ESP/KSA/URU,CPV-KSA,2026-06-27,depth_clean,202323,109371,none,recombination pool
+26JUN26URUESP,cv,7,CPV/ESP/KSA/URU,URU-ESP,2026-06-27,depth_clean,227468,165904,none,recombination pool
+26JUN27CROGHA,cv,8,CRO/ENG/GHA/PAN,CRO-GHA,2026-06-27,depth_clean,264078,156079,"H8 replication (v1 explore set); apparent-arbitrage investigation, Stage 0",recombination pool
+26JUN11KORCZE,cv,9,CZE/KOR/MEX/RSA,KOR-CZE,2026-06-12,depth_clean,340468,228792,"H8 replication (v1 explore set); reconstruction validation + drift/MM experiments, earlier sessions",recombination pool
+26JUN11MEXRSA,cv,9,CZE/KOR/MEX/RSA,MEX-RSA,2026-06-11,depth_clean,110333,82196,"H8 replication (v1 explore set); microprice MM sweeps + leg-sum validation, earlier sessions",recombination pool
+26JUN26NORFRA,cv,10,FRA/IRQ/NOR/SEN,NOR-FRA,2026-06-26,depth_clean,214508,143936,none,recombination pool
+26JUN26SENIRQ,cv,10,FRA/IRQ/NOR/SEN,SEN-IRQ,2026-06-26,depth_clean,84108,45897,none,recombination pool
+26JUN15BELEGY,sealed,2,BEL/EGY/IRI/NZL,BEL-EGY,2026-06-15,depth_clean,326321,225999,none,"carried over from v1 sealed: whole group, never analysed"
+26JUN15IRINZL,sealed,2,BEL/EGY/IRI/NZL,IRI-NZL,2026-06-16,depth_clean,380830,269497,none,"carried over from v1 sealed: whole group, never analysed"
+26JUN26NZLBEL,sealed,2,BEL/EGY/IRI/NZL,NZL-BEL,2026-06-27,depth_clean,125008,79907,none,"carried over from v1 sealed: whole group, never analysed"
+26JUN14NEDJPN,sealed,11,JPN/NED/SWE/TUN,NED-JPN,2026-06-14,depth_clean,284506,213961,none,"carried over from v1 sealed: whole group, never analysed"
+26JUN14SWETUN,sealed,11,JPN/NED/SWE/TUN,SWE-TUN,2026-06-15,depth_clean,147339,0,none,"carried over from v1 sealed: whole group, never analysed"
+26JUN25JPNSWE,sealed,11,JPN/NED/SWE/TUN,JPN-SWE,2026-06-25,depth_clean,398491,255300,none,"carried over from v1 sealed: whole group, never analysed"

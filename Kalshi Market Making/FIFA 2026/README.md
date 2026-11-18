@@ -1,199 +1,245 @@
-# Kalshi Prediction Market Microstructure
+# Kalshi World Cup Order Books: a Microstructure Study
 
-Order book reconstruction, optimal market making, and an empirical study of why passive
-liquidity provision is hard on binary sports event contracts.
+Independent research on tick-level Kalshi order-book data for the FIFA World Cup 2026
+match markets, run as a pre-registered study: hypotheses written down before they're
+tested, splits by independent tournament group, and a sealed hold-out set.
 
-Independent research on ~40 FIFA 2026 World Cup matches of tick-level Kalshi data. (Still ongoing)
-
----
-
-## What this is
-
-Kalshi runs a central limit order book for binary event contracts that settle at $0 or $1.
-Each football match is listed as three mutually exclusive contracts — home win, away win,
-draw — so their prices must sum to 100 cents.
-
-This repository contains:
-
-1. **Data capture and reconstruction** — a WebSocket recorder and a book reconstructor that
-   handles Kalshi's dual YES/NO book structure, validated against ground truth.
-2. **An optimal market maker** — Cartea–Jaimungal–Penalva quoting adapted to binary
-   settlement, with parameter calibration and a queue-aware backtester.
-3. **An empirical microstructure study** — measurements of spread, queue depth, price
-   dynamics and pre-jump conditions that explain why the strategy in (2) does not work
-   at small size on this venue.
-
-The third part is the substance. The headline result is negative and well-supported.
+**Status, November 2026.**
+- **Stages 0–1 done.** The data layer is rebuilt, repaired and externally verified,
+  and the splits are drawn.
+- **Stage 2 under way:** microstructure description on event-driven bars.
+- **Scope:** a microstructure study, due for completion in January 2027. A full
+  trading strategy is out of scope (see *Roadmap*).
 
 ---
 
-## The one mechanic that matters
+## Contents
 
-Kalshi maintains **two books per contract**: a YES book of bids to buy YES, and a NO book of
-bids to buy NO. A NO bid at price `q` is economically a YES **ask** at `100 - q`.
-
-So the YES market's ask side must be derived by flipping the NO book:
-
-```
-best_ask = 100 - max(NO bids)
-```
-
-Nearly every reconstruction bug in this project traced back to this. `inspect_book.py`
-prints the two books side by side so the conversion is visible.
-
-A second subtlety: `taker_book_side` names the **outcome the taker bought**, not the resting
-side they hit (`bid ≡ yes`, `ask ≡ no`, per the Kalshi API docs). A taker who bought YES is
-an aggressive *buyer*; one who bought NO is economically an aggressive *seller* of YES.
-Getting this backwards inverts every order-flow feature.
+- [The data](#the-data)
+- [The finding that shaped everything: a defect in the book](#the-finding-that-shaped-everything-a-defect-in-the-book)
+- [Results so far](#results-so-far)
+- [How the study is run](#how-the-study-is-run)
+- [Repository layout](#repository-layout)
+- [Reproducing](#reproducing)
+- [Roadmap](#roadmap)
+- [Limitations](#limitations)
+- [References](#references)
 
 ---
 
-## Reconstruction validation
+## The data
 
-Two independent checks, both passed:
+A recorder (`capture/recorder.py`) logged Kalshi's raw WebSocket feed (order-book
+snapshots, deltas, trades and the exchange `ticker` channel) from **June 1 to June
+28, 2026**. Each line is the message exactly as received, plus a local receive
+timestamp.
 
-- **Leg-sum identity.** The three contracts of a match are mutually exclusive and exhaustive,
-  so their mid prices must sum to ~100. Across 309,257 reconstructed states of one match the
-  sum had mean **99.99** (IQR 99.50–100.50). The half-tick excess over 100 is the bid-ask
-  overhang, as expected.
-- **Against the exchange's own chart.** Reconstructed price paths match Kalshi's published
-  probability series, including endpoints at settlement.
+- **72** group-stage fixtures exist; **47** were recorded with usable coverage; **40**
+  passed the original quality gate.
+- **Recording gap:** June 16 23:08 UTC → June 22. Matches played inside it are missing.
+- Each match has three mutually exclusive contracts (home win, away win, tie), whose
+  prices sum to about 100¢.
+- **Prices are whole cents.** All 3.17M in-play trades in the research pool are at
+  1–99¢, with no sub-cent prints. (The tournament-winner series does trade in tenths
+  of a cent.) **Sizes are fractional:** about 80% of trades are non-integer, straight
+  from the feed's fixed-point fields.
 
-When no snapshot precedes the analysis window, the book is seeded from deltas alone: start
-empty and let deltas paint in levels as they are touched. Near-touch prices converge within
-minutes; deep untouched levels remain invisible. Prices are reliable under this mode, depth
-is a lower bound.
+Raw data isn't included: it's about 14 GB, and redistribution sits awkwardly with the
+exchange's terms. The recorder collects equivalent data with a Kalshi API key.
 
 ---
 
-## Empirical findings
+## The finding that shaped everything: a defect in the book
 
-Measured on reconstructed World Cup order books. Sample sizes are stated because several of
-these rest on a single match and should be treated as provisional.
+The first build reconstructed each order book by applying deltas to an **empty**
+starting book. Any size resting before the recorder's first message was invisible.
 
-**Spreads are pinned at the minimum.** Of 161,613 book states in one match, **95.3%** had a
-one-tick spread; 3.4% were two ticks. There is almost never room to improve the quote.
+**How it was found.** Per price level, the cumulative sum of deltas went **negative**:
+−1,146,471 contracts at one level. That's impossible unless size existed that the
+build never saw. The touch looked fine, so the usual checks all passed: settlement,
+crossed books, and the three legs summing to 100. Meanwhile the deep book was wrong in
+**40 of 40** matches.
 
-**Touch queues are enormous.** Median resting size at the best bid and ask ran to ~59,000
-contracts, with individual levels holding 300,000–1,500,000. A small order joins the back of
-a queue that a whole match's volume will not clear.
+**The repair.** Each book is now seeded from the last *populated* snapshot in the
+tapes, where one exists without a recording gap in between.
 
-**The book is a barbell.** Dense within two or three ticks of the mid, near-empty in the
-middle of the range (single-contract levels), with large walls at the extremes (1¢ and 99¢).
-Price therefore either steps one tick or gaps several — there is nothing in between to
-absorb a sweep.
+**Verification against an independent source.** Every leg was compared, state by
+state, with a third-party reconstruction (Predexon): **31 million** comparisons.
 
-**Price moves are walks, but too fast to react to.** 97.8% of touch changes are a single
-tick. But the median gap between changes is **8 ms**, so only 19% of moves are reactable at a
-50 ms reaction time (41% at 10 ms, 74% at 1 ms).
+| Tier | Matches | Median ladder agreement | Supports |
+|---|---|---|---|
+| **depth_clean** | **27** | **99.91%**, every leg > 99.5%; deep book 100% | Everything: prices, sizes, queues, depth, flow |
+| price_flow_only | 9 | 27.6% (touch 76.9%) | Prices, trades, flow; *not* depth (no clean seed behind the June 17–21 gap) |
+| gaps | 4 | 20.3% | Nothing safely: dropped messages |
 
-**Short-horizon moves trend rather than revert.** Mean retracement after a 1-tick move over
-the following 5 s is **−0.15** — the price continues rather than coming back. Only 12% of
-moves gave back more than half within 5 s. Passive two-sided quoting therefore fills
-systematically on the losing side.
+80 of the 81 depth_clean legs were verified externally. The remaining one had a
+single third-party snapshot; it's kept, marked unverified. Per-leg results are in
+`results/leg_quality.csv` and `results/state_cmp_all.csv`, and the full account is in
+`docs/canonical_data_layer.md`. **All research uses the 27 depth_clean matches only.**
 
-**Dislocations are effectively instantaneous.** A goal repriced the market from a 2-tick to a
-15-tick spread in **25 ms**, with touch depth collapsing from 2,846 contracts to 24. No
-cancellation policy operates on that timescale.
+---
 
-**Depth collapse is not a usable precursor.** Near-touch depth drops two orders of magnitude
-dozens of times per match, mostly without a price move following. It fires far too often to
-gate quoting on.
+## Results so far
 
-**Stable-book periods have less flow, not more.** Classifying the match into deep-and-steady
-versus flickering, stable periods (37% of the window) showed roughly *half* the trade count
-and volume. Calm conditions are calm because nothing is happening.
+Full mechanisms, tests, kill criteria and results are in `hypotheses.md`.
 
-### Why the strategy fails
+| | Hypothesis | Status |
+|---|---|---|
+| **H1** | Buying all three legs is ever cheaper than 100¢ (arbitrage) | **Rejected.** On consistent states the minimum ask-sum is exactly 100.00 across 310k states; apparent arbitrage was a reconstruction artefact |
+| **H8** | Liquidity at the best quotes disappears mainly through *cancellation*, not trading | **Supported, and replicated on the repaired data.** Cancelled > traded volume in **21 / 21** matches and **9 / 9** groups; median cancel share **93.1%** (IQR 3.8 pp, range 85.4–97.5%) |
+| **H10** | A third party's snapshots can be differenced into usable deltas | **Void.** The test was flawed, but running it exposed the book defect above |
+| **H11** | Price moves transmit between simultaneous matches in the same group | **Rejected.** A goal moved the simultaneous same-group match in only 1 of 10 pairs |
+| **H12** | Matches co-move through team strength: same team +, future opponent − | **Partial.** Same team > 0 in 9/10 groups, but future opponent < 0 in only 7/10. Co-movement is group-wide, not team-specific. Estimated with Hayashi–Yoshida to handle asynchronous updates |
+| H2–H7, H9 | Team similarity, spread/queue replication, thin legs, fee economics by price level, regimes, calendar effects, cancels ahead of adverse moves | Open: Stage 2 and 3 |
 
-These compose into a single mechanism. In calm conditions a small order cannot fill, because
-it sits behind a six-figure queue. It fills only when a sweep clears that queue — which is
-precisely when the price is moving against it. **Flow and adverse selection are coupled: there
-is no regime offering one without the other.**
+**Other measured facts:**
+
+- **Kalshi's weekly maintenance is a data contaminant.** Every Thursday 07:00–09:00 UTC
+  (plus a re-quote hour), orders are cancelled and re-posted across all markets at
+  once. It produced the largest eigenvalue of the cross-match correlation matrix,
+  11.4, which fell to 4.4 once those hours were masked. Hourly or coarser analyses
+  mask Thursdays 07:00–10:00 UTC.
+- **Recurring order sizes.** The same cancel sizes recur across unrelated matches: a
+  typical cancel of 888 in 5 matches, 2,500 in 4 and 444 in 2. In 40 of 63 legs, the
+  90th-percentile cancel is exactly 50,000. These look like participant footprints or
+  venue limits; under investigation.
+- **Fees.** Taker fee = 0.07 × C × P(1 − P). For World Cup match markets the maker fee
+  was 0.0175 × C × P(1 − P), a quarter of the taker fee; the default for most series
+  is zero. Near 50¢ a maker gives back about 0.44¢ of each 1¢ of spread; near 5¢ or
+  95¢, about 0.07¢.
+
+---
+
+## How the study is run
+
+The design follows the approach in *Advances in Financial Machine Learning*:
+
+- **Pre-registration.** Each hypothesis is written in `hypotheses.md` with its
+  mechanism, test and kill criteria *before* it's run. Results added afterwards are
+  labelled post-hoc and can't change a verdict.
+- **The unit of independence is the tournament group,** a connected component of the
+  full 72-fixture team graph. Matches within a group share teams, so a per-match split
+  would leak.
+- **Splits (v2).** A pool of **21 matches in 9 groups** for combinatorial purged
+  cross-validation, and **6 matches in 2 groups sealed**, to be used once as a final
+  check. The loader refuses to read sealed matches and logs every read. See
+  `docs/splits.md`.
+- **Known-answer tests first.** Every estimator is checked on synthetic data with a
+  planted answer before touching real data. For example, Hayashi–Yoshida recovers a
+  planted ρ = +0.6 as +0.63 and is unbiased at ρ = 0, while a 1-minute grid
+  correlation collapses toward 0 (the Epps effect).
+- **Decisions are recorded before results.** For example, whether the one unverified
+  sealed leg stays in the sealed set (it does; sealed results will be reported with
+  and without it).
 
 ---
 
 ## Repository layout
 
 ```
+README.md                 this file
+hypotheses.md             the register: every hypothesis, test, kill criterion and result
 capture/
-  recorder.py            always-on WebSocket recorder, periodic re-snapshotting
-reconstruction/
-  backtest.py            DualBook reconstruction + tape replay (also the backtest engine)
-  inspect_book.py        step through raw messages; shows the YES/NO mechanic explicitly
-  book_ladder.py         full price ladder at depth N, depth-of-market printout
-strategy/
-  cjp_market_maker.py    CJP/Avellaneda-Stoikov engine (backward HJB on the inventory grid)
-  calibrate.py           arrival rate, fill decay and volatility estimation from trades
-  shadow_trader.py       queue-aware fill model with maker fees
-  microprice_mm.py       microprice-centred maker with an adaptive reprice threshold
-analysis/
-  walk_gap.py            walk-vs-gap classification and retracement
-  precursor.py           conditions before large moves, against a calm baseline
-  depth_map.py           full-book depth heatmap over time
-  stability.py           stable/unstable regime classification and flow comparison
-  book_alpha.py          does book state predict forward price? (leakage-controlled)
+  recorder.py             WebSocket recorder (credentials from environment variables)
+pipeline/
+  stage0_inventory.py     one pass over every tape: what's there
+  stage0_windows.py, make_windows.py   match windows (kickoff, final whistle)
+  canon.py                DualBook reconstruction core (YES/NO books)
+  stage0_reconstruct.py   rebuild books per day; SEED_EXTEND seeds from snapshots
+  stage0_validate.py      which matches can be trusted
+  stage0_consistency.py   cross-leg consistency per state
+  run_*.sh, order.txt     resumable drivers for the Stage 0 passes
+  validate_sizes.py       cumulative-delta deficit per level (the defect detector)
+  compare_all.py, compare_states.py   every leg vs the third-party reconstruction
+  predexon_*.py, synpath_*.py         external data-source probes (H10)
+  canon_load.py           the only sanctioned read path; tier warnings, sealed guard
+  stage1_splits_v2.py     group-level splits (stage1_splits.py = superseded v1)
+  flow_decomp.py          classify book changes as fill / cancel / add
+  test_h8.py, test_h8_v2.py           H8 and its replication
+  ticker_extract*.py      exchange best bid/ask panels (sealed groups dropped)
+  xmatch.py               H11
+  xmatrix.py              H12: Hayashi–Yoshida matrix, walk-forward, Marchenko–Pastur
+  learn/hy_walk.py        readable rewrite of the walk-forward correlations
 notebooks/
-  book_explorer.ipynb    reconstruct and inspect a match
-  microprice_compare.ipynb  microprice variants against the mid
+  walk_forward.ipynb      step-by-step walk-forward correlation matrices
+docs/
+  canonical_data_layer.md the data layer, tiers and repair in full
+  splits.md               split design and the one rule for sealed data
+  guides/                 study notes: volatility; event-driven bars
+results/                  small result tables (leg quality, validation, H8, H11, H12, splits)
+early_exploration/        June 2026 market-making prototypes, pre-repair (see its README)
 ```
-
----
-
-## Method notes
-
-Several results changed materially once measurement bugs were found. Recording them here
-because they generalise.
-
-- **Past-price features leak through tick rounding.** Including `recent_move` and
-  `micro_dev` in a forward-return regression produced OOS R² of **+0.037 on synthetic data
-  with no signal at all**. The integer-rounded mid creates spurious mean reversion. Both were
-  removed from `book_alpha.py`.
-- **Event detection leaks backwards.** Marking a jump where the *detection window* opens
-  rather than where the price *starts moving* puts part of the move inside the "pre-jump"
-  lookback. `precursor.py` now walks back to the last flat point and applies a buffer.
-- **Event-based sampling oversamples bursts.** Sampling per book update rather than on a time
-  grid inflated one dataset ~9×, since updates cluster during activity.
-- **Targets need volatility normalisation.** A model fitted on a volatile match and tested on
-  a calm one gets direction right and magnitude badly wrong: sign accuracy 0.615 alongside R²
-  of −0.58. Predicting move-over-recent-volatility fixes the scale mismatch.
-
-Every analysis module was validated against synthetic data with a known answer — both a
-planted signal and a null — before being run on real data.
 
 ---
 
 ## Reproducing
 
-```bash
-pip install numpy pandas matplotlib
-python capture/recorder.py                     # collect data
-python -c "import backtest; backtest.run_backtest(...)"
+The pipeline expects a data folder laid out like this:
+
+```
+<data>/
+  kalshi-2026-06-DD.jsonl[.gz]   raw tapes from capture/recorder.py
+  pipeline/                      this folder
+  canonical/                     built by Stage 0
+  splits/                        built by Stage 1
 ```
 
-Recorded data is not included: it is large, and redistribution sits awkwardly with the
-exchange's terms. `recorder.py` collects equivalent data from a Kalshi API key.
+```bash
+pip install numpy pandas "pyarrow>=18" scipy matplotlib
+bash pipeline/run_inventory.sh                        # re-run until it prints COMPLETE (time-budgeted)
+bash pipeline/run_windows.sh                          # same
+OUT_SUFFIX=_v2 SEED_EXTEND=1 bash pipeline/run_reconstruct.sh   # repaired build; day files in order (pipeline/order.txt)
+CANON_SUFFIX=_v2 python3 pipeline/stage0_validate.py
+python3 pipeline/stage1_splits_v2.py
+CANON_SUFFIX=_v2 python3 pipeline/test_h8_v2.py run && CANON_SUFFIX=_v2 python3 pipeline/test_h8_v2.py summary
+python3 pipeline/learn/hy_walk.py selftest
+```
+
+The `run_*.sh` scripts stop after a time budget and resume where they left off, so
+run them repeatedly until they report completion.
+
+`CANON_SUFFIX` is required: it names the tree to read (`_v2` = depth_clean), and
+reads fail without it. External comparisons need `PREDEXON_API_KEY` in the
+environment; it's never stored in code.
 
 ---
 
-## Status and limitations
+## Roadmap
 
-- Most empirical results are measured on **one to three matches**, single contract leg. They
-  are consistent with each other and with theory, but cross-match replication is outstanding.
-- Analysis has focused on the **favourite's leg** — the most liquid and therefore the hardest
-  to make markets in. The underdog and draw legs are untested; the Polymarket literature
-  reports a longshot spread premium that would predict a friendlier structure there.
-- The **cross-leg arbitrage** implied by the sum-to-100 constraint has been checked with mid
-  prices only. Whether executable prices ever cross is an open question.
-- The backtest has **no market impact model**; it assumes historical flow is unchanged by the
-  agent's presence. This flatters any strategy quoting at size.
+| Phase | When | Work |
+|---|---|---|
+| Bars | Nov 2026 | Tick, volume and book-event bars; compare their statistics with time bars |
+| Stylised facts | Nov – Dec | Spreads, depth, trade and cancel rates, price impact, by leg type and match phase (H3, H4, H6); a spread-minus-fees cost map by price level (H5) |
+| Jumps and one predictive test | Dec – Jan | Jump detection and the book around goals; H9; a registered test of whether book imbalance predicts the next mid move, with grouped purged CV |
+| Sealed check and write-up | Jan 2027 | One check on the sealed groups; final report |
+
+Out of scope for this study, listed as future work: a full strategy backtest with a
+fill model, meta-labelling, a volatility forecaster, and fresh-data tests on live
+leagues.
+
+---
+
+## Limitations
+
+- **Few independent events.** 27 clean matches in 11 groups. Rows are plentiful;
+  independent observations are not.
+- **No knockout rounds**, and nothing from June 17–21.
+- **L2 data only.** Kalshi publishes aggregate size per price level, not individual
+  orders, so queue position can't be observed directly.
+- **The markets have settled.** Nothing here can be traded live; any edge would have
+  to carry over to other Kalshi sports markets.
+- The **maker fee schedule** on file took effect July 7, after the group stage; the
+  June schedule is unconfirmed, so the 0.0175 maker rate is treated as the
+  conservative case.
 
 ---
 
 ## References
 
-- Glosten & Milgrom (1985), *Bid, Ask and Transaction Prices in a Specialist Market*
-- Kyle (1985), *Continuous Auctions and Insider Trading*
-- Avellaneda & Stoikov (2008), *High-frequency trading in a limit order book*
-- Cartea, Jaimungal & Penalva (2015), *Algorithmic and High-Frequency Trading*
+- López de Prado (2018), *Advances in Financial Machine Learning*
+- Hayashi & Yoshida (2005), *On covariance estimation of non-synchronously observed diffusion processes*
+- Epps (1979), *Comovements in stock prices in the very short run*
+- Laloux, Cizeau, Bouchaud & Potters (1999), *Noise dressing of financial correlation matrices*
+- Clark (1973), *A subordinated stochastic process model with finite variance for speculative prices*
+- Glosten & Milgrom (1985); Kyle (1985); Avellaneda & Stoikov (2008)
 - Bouchaud, Bonart, Donier & Gould (2018), *Trades, Quotes and Prices*

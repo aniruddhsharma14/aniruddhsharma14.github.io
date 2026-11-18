@@ -1,0 +1,42 @@
+{
+  "p1": 9,
+  "p2": 7,
+  "p3_p": 0.0366,
+  "p4_ari": -0.0029968158831241805,
+  "p4_p": 0.6116,
+  "verdict": "PARTIAL: co-movement, not strength updating (P2 failed)",
+  "per_group": {
+    "same_team": {
+      "groups": 10,
+      "hits": 9,
+      "per_group": {
+        "COD": 0.021,
+        "CUW": 0.009,
+        "JOR": 0.008,
+        "NOR": 0.031,
+        "PAN": -0.023,
+        "PAR": 0.052,
+        "RSA": 0.022,
+        "SCO": 0.018,
+        "SUI": 0.024,
+        "URU": 0.019
+      }
+    },
+    "future_opponent": {
+      "groups": 10,
+      "hits": 7,
+      "per_group": {
+        "COD": -0.003,
+        "CUW": 0.002,
+        "JOR": 0.041,
+        "NOR": 0.004,
+        "PAN": -0.025,
+        "PAR": -0.044,
+        "RSA": -0.033,
+        "SCO": -0.013,
+        "SUI": -0.02,
+        "URU": -0.006
+      }
+    }
+  }
+}

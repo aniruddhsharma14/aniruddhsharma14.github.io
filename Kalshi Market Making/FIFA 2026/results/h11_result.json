@@ -1,0 +1,9 @@
+{
+  "p1_positive": 1,
+  "p1_n": 10,
+  "p2_positive": 2,
+  "p2_n": 10,
+  "p3_same_future_median": 0.0,
+  "p3_cross_median": 0.0,
+  "verdict": "REJECTED (P1 failed)"
+}
