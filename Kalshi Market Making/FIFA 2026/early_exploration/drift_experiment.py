@@ -13,8 +13,10 @@ Honest design:
     out-of-sample. Metric: OOS R^2 vs zero, sign accuracy, corr(pred, realized).
 
 Run:
-    python3 drift_experiment.py
-(edit TRAIN/TEST at the bottom to point at your tapes)
+    python3 drift_experiment.py TRAIN_TAPE TRAIN_TICKER TEST_TAPE TEST_TICKER [--seed-test]
+e.g. the original run (KOR-CZE has no snapshot before its window, so seed it from deltas):
+    python3 drift_experiment.py kalshi-2026-06-12.jsonl KXWCGAME-26JUN11MEXRSA-MEX \
+                                kalshi-2026-06-11.jsonl KXWCGAME-26JUN11KORCZE-KOR --seed-test
 """
 from __future__ import annotations
 import numpy as np
@@ -199,9 +201,17 @@ def run(train, test, seed_train=False, seed_test=False):
 
 
 if __name__ == "__main__":
-    # EDIT THESE to your tapes. Train on one match, test on the OTHER (out-of-sample).
-    TRAIN = ("/Users/aniruddhsharma/Desktop/worldcup/recordings/kalshi-2026-06-12-MEXRSA-MEX.jsonl",
-             "KXWCGAME-26JUN11MEXRSA-MEX")
-    TEST  = ("/Users/aniruddhsharma/Desktop/worldcup/recordings/KORCZE-all-jun11.jsonl",
-             "KXWCGAME-26JUN11KORCZE-KOR")
-    run(TRAIN, TEST, seed_train=False, seed_test=True)   # KOR-CZE needs seed_from_deltas
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="Train on one match's tape, test on another's (match-out-of-sample).")
+    ap.add_argument("train_tape", help="recorder .jsonl file containing the training match")
+    ap.add_argument("train_ticker", help="e.g. KXWCGAME-26JUN11MEXRSA-MEX")
+    ap.add_argument("test_tape", help="recorder .jsonl file containing the test match")
+    ap.add_argument("test_ticker", help="e.g. KXWCGAME-26JUN11KORCZE-KOR")
+    ap.add_argument("--seed-train", action="store_true",
+                    help="seed the training book from deltas (no snapshot before the window)")
+    ap.add_argument("--seed-test", action="store_true",
+                    help="seed the test book from deltas (no snapshot before the window)")
+    a = ap.parse_args()
+    run((a.train_tape, a.train_ticker), (a.test_tape, a.test_ticker),
+        seed_train=a.seed_train, seed_test=a.seed_test)
