@@ -18,6 +18,7 @@ tested, splits by independent tournament group, and a sealed hold-out set.
 - [The data](#the-data)
 - [The finding that shaped everything: a defect in the book](#the-finding-that-shaped-everything-a-defect-in-the-book)
 - [Results so far](#results-so-far)
+- [What didn't work, and why](#what-didnt-work-and-why)
 - [How the study is run](#how-the-study-is-run)
 - [Repository layout](#repository-layout)
 - [Reproducing](#reproducing)
@@ -107,6 +108,31 @@ Full mechanisms, tests, kill criteria and results are in `hypotheses.md`.
   was 0.0175 × C × P(1 − P), a quarter of the taker fee; the default for most series
   is zero. Near 50¢ a maker gives back about 0.44¢ of each 1¢ of spread; near 5¢ or
   95¢, about 0.07¢.
+
+---
+
+## What didn't work, and why
+
+Kept on purpose. Most of what changed this project came from things that failed.
+
+**Hypotheses that failed or were voided**
+
+| | What happened | Why it failed | What it taught |
+|---|---|---|---|
+| H1 | Apparent arbitrage: the three asks summed below 100¢ | One leg's best quote was stale in our own reconstruction, not in the market | An "edge" is first suspected to be a data bug |
+| H10 | Its first test failed on good and bad books alike (2.9% vs 3.1% mismatch) | The test compared net changes over intervals, and timestamp-boundary skew alone broke it | A test that can't pass on correct data isn't a test. Retired in favour of state-by-state comparison, which exposed the book defect |
+| H11 | A goal moved the simultaneous same-group match in only 1 of 10 pairs | No large instantaneous transmission between match-result markets | The admission rule for which matches count was wrong twice (truncated matches; a match played inside the recording gap that looked settled), and was fixed before the verdict |
+| H12 | Opposite-sign moves for future opponents held in 7 of 10 groups, short of the 8 required | Co-movement is group-wide, not team-specific | A suggestive pattern seen afterwards in the walk-forward windows doesn't count; it stays a hypothesis for fresh data |
+
+**Process errors**
+
+- **Validation that only checked the touch.** Settlement, crossed-book and three-leg checks all passed while the deep book was wrong in 40 of 40 matches. A check has to cover the depth it claims to validate.
+- **Cartesian joins mistaken for results, twice.** Joins on non-unique timestamps turned 1.6M rows into 27.4M. Every join now asserts one-to-one, and row counts are checked.
+- **A code transfer that reported success but delivered a stale file.** Every file is now verified by checksum on both sides before it's run.
+- **A confounded metric used as a headline.** The raw-delta size deficit misreads once a snapshot sits in the stream; the external comparison is authoritative.
+- **Settlement collapse faking price jumps.** After settlement the book empties to about 1¢ / 99¢, giving a fake 50¢ mid at the end of every match. Quotes with spreads of 50¢ or more are now dropped.
+- **An exchange routine mistaken for market structure.** The largest eigenvalue of the cross-match correlation matrix came from Kalshi's Thursday maintenance pause, not from the markets.
+- **Overgeneralising from a sample.** Claims such as "the tapes contain no snapshots" (checked on two days) and "there are no qualification markets" were wrong and are corrected in the register.
 
 ---
 
@@ -210,7 +236,7 @@ environment; it's never stored in code.
 |---|---|---|
 | Bars | Nov 2026 | Tick, volume and book-event bars; compare their statistics with time bars |
 | Stylised facts | Nov – Dec | Spreads, depth, trade and cancel rates, price impact, by leg type and match phase (H3, H4, H6); a spread-minus-fees cost map by price level (H5) |
-| Jumps and one predictive test | Dec – Jan | Jump detection and the book around goals; H9; a registered test of whether book imbalance predicts the next mid move, with grouped purged CV |
+| Jumps and one replication | Dec – Jan | Jump detection and the book around goals; H9; a registered **replication of Gould & Bonart (2016)**: does queue imbalance at the best quotes predict the direction of the next mid move? Tested on a new market type, with grouped purged CV, Kalshi's real fees and the sealed groups as unseen data |
 | Sealed check and write-up | Jan 2027 | One check on the sealed groups; final report |
 
 Out of scope for this study, listed as future work: a full strategy backtest with a
@@ -237,6 +263,7 @@ leagues.
 ## References
 
 - López de Prado (2018), *Advances in Financial Machine Learning*
+- Gould & Bonart (2016), *Queue imbalance as a one-tick-ahead price predictor in a limit order book*, Market Microstructure and Liquidity
 - Hayashi & Yoshida (2005), *On covariance estimation of non-synchronously observed diffusion processes*
 - Epps (1979), *Comovements in stock prices in the very short run*
 - Laloux, Cizeau, Bouchaud & Potters (1999), *Noise dressing of financial correlation matrices*
